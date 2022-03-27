@@ -1,0 +1,20 @@
+#!/bin/sh
+files=$(ls *.xls?) 
+for i in $files; 
+do 
+    filename="${i%.*}"
+    extention="${i#*.}"
+    outext=".csv"
+    if [ "$extention" == "xlsx" ];then
+        xlsx2csv "$i" > "$filename$outext"
+    elif [ "$extention" == "xls" ];then
+        xls2csv "$i" > "$filename$outext"
+    else
+        echo "${i}不是xlsx或xls文件"
+    fi
+    if [ $? -ne 0 ];then
+        echo "${i}转换失败"
+    else
+        echo "${i}转换成功"
+    fi
+done

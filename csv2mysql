@@ -1,0 +1,64 @@
+#!/bin/sh
+
+# show commands being executed, per debug
+#set -x
+
+_csv_files=$(ls $(pwd)/*.{csv,txt}  2>/dev/null | fzf -m)
+[[ $? -eq 0 ]] || { echo  "you must chose some csv or txt files";exit 1; }
+# define database connectivity
+echo -e "input some database parameters\n"
+read -p "Enter your host ip,(default is 127.0.0.1)🔗:" _db_host
+if [ ! -n "$_db_host" ];then
+    _db_host="127.0.0.1"
+fi
+read -p "Enter your database name 📚:" _db
+read -p "Enter your account name 🥷:"  _db_user
+read -p "Enter password 🔑:" -s  _db_password 
+echo '\n'
+read -p "table name 📑:" _table_name
+read -p "do your wan't to drop table if exists? 0:don't drop, 1:drop  :" _drop_table
+# read  file start num
+read -p "data ignore lines num,usually as 0 or 1:" _ignore_line
+read -p "input character set（default is utf8):" _character_set
+if [ ! -n "$_character_set" ];then
+    _character_set="utf8"
+fi
+# loop through csv files
+i=1
+for _csv_file in $_csv_files ; 
+do
+    if [ $i -eq 1 ];then
+    # get header columns from CSV file
+        _header_columns=(`head -1 $_csv_file | tr ',' '\n' | sed 's/^"//' | sed 's/"$//' | sed 's/ /_/g'`)
+        _header_columns_string=`head -1 $_csv_file | sed 's/ /_/g' | sed 's/"//g'`
+        # ensure table exists
+        sql_drop_table="drop table if exists \`$_table_name\`;"
+        if [ $_drop_table -eq 1 ];then
+            sql_create_table="${sql_drop_table}create table \`$_table_name\`  \n (\n"
+        else
+        sql_create_table="create table \`$_table_name\`  \n (\n"
+        fi
+        ## loop through header columns
+        length=${#_header_columns[@]}
+        for i in ${!_header_columns[@]};do
+            if [ "$i" -ne $[$length-1] ];then
+                sql_create_table="$sql_create_table \`${_header_columns[i]}\` varchar(255),\n"
+            else
+                sql_create_table="$sql_create_table \`${_header_columns[i]}\` varchar(255)\n"
+            fi
+        done
+        sql_create_table="$sql_create_table);"
+
+        mysql -h$_db_host -u$_db_user -p$_db_password $_db --execute="$sql_create_table" >/dev/null
+    fi    
+  echo "开始导入表$_csv_file"
+  mysql -h$_db_host -u$_db_user -p$_db_password $_db << eof
+    set global local_infile = 1;
+    load data local infile "$_csv_file"
+    into table \`$_table_name\`
+    character set $_character_set
+    fields terminated by ',' optionally enclosed by '"'
+    lines terminated by '\n' ignore $_ignore_line lines;
+eof
+done
+exit
