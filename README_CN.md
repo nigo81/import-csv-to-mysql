@@ -56,4 +56,44 @@ input character set（default is utf8):
 你需要在`table name`处输入你将导入的数据保存的表的名称，如果数据库中没有该表，会自动创建。
 
 
+## vim脚本
 
+如果你熟悉vim，我也写了个vim脚本。
+
+```
+" SQL建表 可以将一行表头转换为导入语句
+vnoremap <F12> :call Mysql()<CR>
+func! Mysql() range
+let line = getline('.')
+let l = line('.')
+let start = l
+let word_list = split(line,',')
+let output = ["create table <++> ("]
+let i =0
+for word in word_list
+    let word = substitute(word,'^"','','')
+    let word = substitute(word,'"$','','')
+    let word = "`" . word . "`"
+    let i=i+1
+    if i == len(word_list)
+        call add(output,word . " varchar(255)")
+    else
+        call add(output,word . " varchar(255),")
+
+    endif
+    let l = l+1
+endfor
+call add(output,");")
+call append(start,output)
+let l = l+3
+call setline(l ,"")
+call setline(l+1 ,"load data infile <++>")
+call setline(l+2,"into table <++>")
+call setline(l+3,"character set 'utf8'")
+call setline(l+4,"fields terminated by '<++>' optionally enclosed by <++>")
+call setline(l+5,"lines terminated by '<++>' ignore 1 lines;")
+"return line
+endfunc
+```
+
+可视模式下选中表头行，按下F12键，就可以自动生成建表语句和导入语句。
